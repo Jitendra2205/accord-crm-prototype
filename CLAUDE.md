@@ -5,7 +5,7 @@ Accord is a prototype for a PM take-home assignment ("Reimagine CRM"). It is a d
 ## Run and check
 - `node server.js` serves on `PORT` (default 3000). Node 18+, zero npm dependencies. Do not add any.
 - `node test.js` must print `ok` before every commit.
-- Live AI: set `LLM_API_KEY` (any OpenAI-compatible API; default Google Gemini `gemini-2.5-flash`). Without it the app runs in demo mode.
+- Live AI: set `LLM_API_KEY` (any OpenAI-compatible API; default Google Gemini `gemini-3.8-flash`). Without it the app runs in demo mode.
 
 ## Layout
 - `server.js`: static files + `/api/status`, `/api/capture`, `/api/buyer`, `/api/ask`. Prompts live here. Rate limit 60/h per IP.

@@ -8,7 +8,9 @@ const DEMO = require('./demo-outputs');
 
 const PORT = process.env.PORT || 3000;
 const LLM_BASE_URL = process.env.LLM_BASE_URL || 'https://generativelanguage.googleapis.com/v1beta/openai';
-const LLM_MODEL = process.env.LLM_MODEL || 'gemini-2.5-flash';
+const LLM_MODEL = process.env.LLM_MODEL || 'gemini-3.8-flash';
+// Gemini flash models "think" by default, which took 45s+ on the longest sample. Low effort keeps a call to a few seconds; set LLM_REASONING_EFFORT to override or '' to omit.
+const LLM_REASONING = process.env.LLM_REASONING_EFFORT ?? (LLM_BASE_URL.includes('googleapis.com') ? 'low' : '');
 const LLM_API_KEY = process.env.LLM_API_KEY || '';
 const MAX_INPUT = 8000; // chars of user text sent to the model
 const PUBLIC = path.join(__dirname, 'public');
@@ -39,10 +41,10 @@ async function llmJSON(system, user) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${LLM_API_KEY}` },
     body: JSON.stringify({
-      model: LLM_MODEL, temperature: 0.2, response_format: { type: 'json_object' },
+      model: LLM_MODEL, temperature: 0.2, response_format: { type: 'json_object' }, ...(LLM_REASONING && { reasoning_effort: LLM_REASONING }),
       messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
     }),
-    signal: AbortSignal.timeout(45000),
+    signal: AbortSignal.timeout(60000),
   });
   if (!r.ok) throw new Error(`LLM ${r.status}: ${(await r.text()).slice(0, 200)}`);
   const j = await r.json();
@@ -61,6 +63,8 @@ Propose changes to the record. Rules:
 - Allowed fields: stage, amount, close_date, next_step, pain, decision_process, competitors, champion, economic_buyer, risks.
 - Stages: Discovery, Evaluation, Proposal, Negotiation, Closed Won, Closed Lost.
 - The draft follow-up goes back on the same channel, is short, specific, and in the buyer's language.
+- The draft is a proposal for the rep to approve, not a sent message. Never say anything is attached or already done, and never confirm a date, price, scope or other commitment the buyer did not already agree to or the Brain does not state. Ask or propose instead ("Can we...", "I will send ... by <date>" only if a next_step says so).
+- Stage must follow the Brain's stage definitions exactly: propose a stage only if the interaction or record shows every condition of that stage; quote the words that show it.
 - You are given the company's Brain (ACCORD.md). Follow its stage definitions, voice, rules and objection handling.
   List in "brain_used" the exact Brain lines you relied on, copied word for word (max 4).
 Return JSON: {"summary": string (2 sentences), "brain_used":[string], "updates":[{"field","from","to","evidence","confidence"}],
@@ -91,7 +95,7 @@ Set gap=true when you escalated only because the approved knowledge has no answe
 Return JSON: {"answer": string, "sources": [id], "escalate": boolean, "gap": boolean, "reason": string}`;
 
 // --- Agent 3: ask the pipeline ---
-const ASK_SYS = `You answer a sales manager's question using ONLY the pipeline JSON and the company Brain provided. Be concise (max 6 bullet lines).
+const ASK_SYS = `You answer a sales manager's question using ONLY the pipeline JSON, the Buyer Room questions and the company Brain provided. "This month" means the month of Today's date. Be concise (max 6 bullet lines).
 Name deals and quote the evidence field values you relied on. If the data cannot answer it, say so.
 Return JSON: {"answer": string (may contain "\\n- " bullets), "deals": [deal id]}`;
 
@@ -161,7 +165,7 @@ const server = http.createServer(async (req, res) => {
           const d = DEMO.ask[body.sampleId];
           return send(res, 200, d ? { mode: 'demo', result: d } : { mode: 'demo', error: 'Demo mode answers the suggested questions only. Add LLM_API_KEY for free-form questions.' });
         }
-        const out = await llmJSON(ASK_SYS, `Company Brain (ACCORD.md):\n${str(body.brain, 8000)}\n\nToday: ${body.today}\nPipeline:\n${JSON.stringify(body.pipeline).slice(0, 12000)}\n\nQuestion: ${input}`);
+        const out = await llmJSON(ASK_SYS, `Company Brain (ACCORD.md):\n${str(body.brain, 8000)}\n\nToday: ${body.today}\nPipeline:\n${JSON.stringify(body.pipeline).slice(0, 12000)}\n\nBuyer Room questions and signals:\n${JSON.stringify(arr(body.buyer_questions).slice(0, 30)).slice(0, 3000)}\n\nQuestion: ${input}`);
         return send(res, 200, { mode: 'live', result: { answer: str(out.answer, 2000), deals: arr(out.deals).map(String) } });
       }
       return send(res, 404, { error: 'Unknown endpoint' });

@@ -11,4 +11,4 @@ services:
       - key: LLM_BASE_URL
         value: https://generativelanguage.googleapis.com/v1beta/openai
       - key: LLM_MODEL
-        value: gemini-2.5-flash
+        value: gemini-3.8-flash

@@ -29,7 +29,7 @@ node test.js          # self-check: demo quotes are real, uncited changes droppe
 |---|---|---|
 | `LLM_API_KEY` | *(empty = demo mode)* | Google Gemini key (free tier works) or any OpenAI-compatible key |
 | `LLM_BASE_URL` | `https://generativelanguage.googleapis.com/v1beta/openai` | any OpenAI-compatible endpoint, e.g. Groq: `https://api.groq.com/openai/v1` |
-| `LLM_MODEL` | `gemini-2.5-flash` | e.g. Groq: `openai/gpt-oss-120b` |
+| `LLM_MODEL` | `gemini-3.8-flash` | e.g. Groq: `openai/gpt-oss-120b` |
 
 - **Live mode:** capture, Buyer Room and Ask call the model on any text you paste. The key stays on the server. Requests are limited to 60 per IP per hour.
 - **Demo mode:** the three capture samples and the suggested Ask questions return hand-written outputs; the Buyer Room uses keyword retrieval with a rule that sends commercial asks to a person. The UI labels which mode produced each answer.

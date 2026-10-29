@@ -42,7 +42,9 @@ function addToBrain(section, lines) {
   const next = S.brain.indexOf('\n## ', i + 4), at = next < 0 ? S.brain.length : next;
   S.brain = S.brain.slice(0, at).replace(/\n*$/, '\n') + lines + '\n' + S.brain.slice(at); S.brainVersion++; return true;
 }
-const inBrain = q => q && S.brain.replace(LEARNED, '').toLowerCase().includes(q.toLowerCase().trim());
+// Strip every [learned: …] tag from both sides: the model may quote a line with or without its tag.
+const noTag = s => s.replace(new RegExp(LEARNED.source, 'g'), '').toLowerCase().trim();
+const inBrain = q => q && noTag(S.brain).includes(noTag(q));
 function renderBrain(md) {
   return md.split('\n').map(l => {
     const m = l.match(LEARNED), tag = m ? ` <span class="chip learned">${esc(m[0].trim().slice(1, -1))}</span>` : '', t = esc(l.replace(LEARNED, ''));
@@ -305,7 +307,9 @@ function bindAsk() {
   const go = async (q, sampleId) => {
     $('#askOut').innerHTML = '<div class="empty"><span class="spin"></span> Reading pipeline…</div>';
     const pipeline = S.deals.map(d => ({ id: d.id, name: d.name, amount: d.amount, rep_stage: d.stage, evidence_stage: d.evidenceStage, close: d.close, owner: d.owner, health: d.health, risks: d.risks || [d.fields?.risks?.value].filter(Boolean), evidence: d.evidence || d.fields }));
-    const j = await post('/api/ask', { input: q, sampleId, today: TODAY, pipeline, brain: S.brain });
+    // Buyer Room signals: Brain suggestions that came from buyers, plus questions asked in this session.
+    const buyer_questions = [...S.learn.filter(l => /buyer/i.test(l.source)).map(l => `${l.title}: ${l.evidence}`), ...S.chat.filter(m => m.who === 'buyer').map(m => m.text)];
+    const j = await post('/api/ask', { input: q, sampleId, today: TODAY, pipeline, buyer_questions, brain: S.brain });
     if (j.error) return $('#askOut').innerHTML = `<div class="empty err">${esc(j.error)}</div>`;
     $('#askOut').innerHTML = `<h3>${esc(q)} <span class="chip ${j.mode}">${j.mode === 'live' ? 'live AI' : 'demo output'}</span></h3><div class="answer">${esc(j.result.answer).replace(/\n/g, '<br>')}</div>
       <div class="srcs">${j.result.deals.map(id => deal(id)).filter(Boolean).map(d => `<a class="chip" href="#deal/${d.id}">${esc(d.name)}</a>`).join('')}</div>`;
