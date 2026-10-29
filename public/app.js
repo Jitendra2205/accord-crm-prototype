@@ -152,7 +152,9 @@ function viewCapture(sid) {
 function renderCapture({ result, mode, source, sid }) {
   const d = deal('d1');
   const norm = x => x.toLowerCase().replace(/[’']/g, "'").replace(/\s+/g, ' ');
-  const found = q => q && norm(source).includes(norm(q));
+  const found = q => q && norm(q).trim().length >= 12 && norm(source).includes(norm(q)); // min length: a 1-letter "quote" must not pass
+  const stages = Object.keys(STAGE_P);
+  result.updates = result.updates.filter(u => FIELD_LABEL[u.field] && (u.field !== 'stage' || stages.includes(u.to))); // unknown fields / invalid stages never reach the record
   let marked = esc(source);
   // shortcut: highlight needs an exact (case-insensitive) match; whitespace-variant quotes pass the check but stay unhighlighted.
   result.updates.forEach(u => { const q = esc(u.evidence), i = q ? marked.toLowerCase().indexOf(q.toLowerCase()) : -1; if (i >= 0) marked = marked.slice(0, i) + '<mark>' + marked.slice(i, i + q.length) + '</mark>' + marked.slice(i + q.length); });
@@ -231,6 +233,7 @@ function viewRoom() {
     </section>
     <section class="panel chat">
       <h3>Ask Cobalt Route <small class="muted">answers only from approved content · ${LIVE ? 'live AI' : 'demo retrieval'}</small></h3>
+      <p class="muted small">Prototype: the approved answers come from the Brain in this browser tab. A real deployment would keep them server-side.</p>
       <div id="msgs">${S.chat.length ? S.chat.map(msg).join('') : '<div class="empty">Ask about security, rollout, pricing or the pilot.</div>'}</div>
       <div class="samples">${ROOM_Q.map(q => `<button class="pill" data-q="${esc(q)}">${esc(q)}</button>`).join('')}</div>
       <div class="row"><input id="roomQ" placeholder="Type a question…"><button class="btn primary" id="roomSend">Ask</button></div>
@@ -320,6 +323,8 @@ function viewTrust() {
 }
 function bindTrust() {
   document.querySelectorAll('[data-l]').forEach(s => s.onchange = () => { S.autonomy[s.dataset.l].level = s.value; audit('Asha', `Set "${S.autonomy[s.dataset.l].action}" to ${s.value}`); toast('Autonomy updated'); });
+  // policy lock also holds in code, not just in the disabled dropdown
+  document.querySelectorAll('[data-l]').forEach(s => { if (/discount|legal|custom/i.test(S.autonomy[s.dataset.l].action)) s.onchange = () => { S.autonomy[s.dataset.l].level = 'Never auto'; render(); }; });
   $('#sugg').onclick = () => { S.autonomy.splice(4, 0, { action: 'Send meeting-recap emails', level: 'Auto + notify' }); audit('Asha', 'Granted Auto + notify for meeting recaps'); render(); };
 }
 

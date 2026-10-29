@@ -20,4 +20,12 @@ assert(demoBuyer('Can you give us 20% off?', SEED.kb).reason.startsWith('Commerc
 assert.deepStrictEqual(demoBuyer('Do you support Okta SSO?', SEED.kb).sources, ['K1']);
 assert(demoBuyer('What is your carbon policy for the moon?', SEED.kb).escalate, 'unknown must escalate');
 for (const q of ['Where is our data hosted?', 'How long does rollout take for 6 depots?']) assert(!demoBuyer(q, SEED.kb).escalate, q);
+// server-side cite-or-block with a source: absent, too-short, unknown-field and bad-stage updates are dropped
+const SRC = 'Priya: we have set aside around sixty thousand dollars for year one.';
+const U = (field, to, evidence) => ({ field, to, evidence, confidence: 'high' });
+const kept = ups => cleanCapture({ updates: ups }, SRC).updates.map(u => u.field);
+assert.deepStrictEqual(kept([U('amount', '60000', 'sixty thousand dollars for year one'), U('amount', '1', 'not in the source at all'), U('amount', '1', 'a'), U('bogus', 'x', 'sixty thousand dollars'), U('stage', 'Won-ish', 'sixty thousand dollars'), U('stage', 'Proposal', 'sixty thousand dollars')]), ['amount', 'stage']);
+const { COMMERCIAL } = require('./server');
+for (const q of ['Can you give us 20% off?', 'any discount?', 'Will you promise the roadmap item?']) assert(COMMERCIAL.test(q), q);
+assert(!COMMERCIAL.test('Do you support Okta SSO?'));
 console.log('ok');
