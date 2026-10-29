@@ -10,7 +10,7 @@ Do these in order and stop to show me the result after steps 2 and 4.
 
 2. GitHub: create a public repo named `accord-crm-prototype` under my account (Jitendra2205) with `gh`, commit everything, push to `main`. Then tell me the exact Render steps: New → Blueprint → this repo, and where to paste `LLM_API_KEY`.
 
-3. Live-AI check: I'll give you a Groq key as an environment variable, never in a file. Start the server with it and run:
+3. Live-AI check: I'll give you a Gemini key as an environment variable, never in a file. Start the server with it and run:
    - All 3 capture samples. Every update must have a quote found in the source, `brain_used` lines must be found in the Brain, the stage proposal for sample 1 must follow the Brain's stage definitions, and drafts must follow the Brain's Voice section.
    - Buyer Room: "Do you support Okta SSO?" (answer with K1), "Can you give us 20% off?" (escalate, gap false), "What happens to our data if we cancel?" (escalate, gap true, then answered after approving K7 in the Brain).
    - Ask: the 3 suggested questions.

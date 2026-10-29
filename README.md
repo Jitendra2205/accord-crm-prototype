@@ -27,9 +27,9 @@ node test.js          # self-check: demo quotes are real, uncited changes droppe
 ## Live AI vs demo mode
 | Env var | Default | |
 |---|---|---|
-| `LLM_API_KEY` | *(empty = demo mode)* | Any OpenAI-compatible key (free Groq key works) |
-| `LLM_BASE_URL` | `https://api.groq.com/openai/v1` | e.g. Gemini: `https://generativelanguage.googleapis.com/v1beta/openai` |
-| `LLM_MODEL` | `llama-3.3-70b-versatile` | e.g. `gemini-2.5-flash` |
+| `LLM_API_KEY` | *(empty = demo mode)* | Google Gemini key (free tier works) or any OpenAI-compatible key |
+| `LLM_BASE_URL` | `https://generativelanguage.googleapis.com/v1beta/openai` | any OpenAI-compatible endpoint, e.g. Groq: `https://api.groq.com/openai/v1` |
+| `LLM_MODEL` | `gemini-2.5-flash` | e.g. Groq: `openai/gpt-oss-120b` |
 
 - **Live mode:** capture, Buyer Room and Ask call the model on any text you paste. The key stays on the server. Requests are limited to 60 per IP per hour.
 - **Demo mode:** the three capture samples and the suggested Ask questions return hand-written outputs; the Buyer Room uses keyword retrieval with a rule that sends commercial asks to a person. The UI labels which mode produced each answer.
@@ -37,7 +37,7 @@ node test.js          # self-check: demo quotes are real, uncited changes droppe
 ## Deploy on Render
 1. Push this folder to a GitHub repo.
 2. In Render: **New → Blueprint** and pick the repo (uses `render.yaml`), or **New → Web Service** with build command `true` and start command `node server.js`.
-3. Add `LLM_API_KEY` under Environment (get a free key at console.groq.com). Leave it empty to run in demo mode.
+3. Add `LLM_API_KEY` under Environment (get a free key at aistudio.google.com/apikey). Leave it empty to run in demo mode.
 4. Free instances sleep after inactivity; open the link once a minute before you present.
 
 ## Honest scope

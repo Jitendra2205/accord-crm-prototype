@@ -1,5 +1,5 @@
 // Accord prototype server. Zero dependencies: Node 18+ (global fetch).
-// Serves /public and three agent endpoints. LLM is any OpenAI-compatible API (default: Groq).
+// Serves /public and three agent endpoints. LLM is any OpenAI-compatible API (default: Google Gemini).
 // No LLM_API_KEY -> demo mode: pre-computed outputs for the built-in samples, clearly labelled.
 const http = require('http');
 const fs = require('fs');
@@ -7,8 +7,8 @@ const path = require('path');
 const DEMO = require('./demo-outputs');
 
 const PORT = process.env.PORT || 3000;
-const LLM_BASE_URL = process.env.LLM_BASE_URL || 'https://api.groq.com/openai/v1';
-const LLM_MODEL = process.env.LLM_MODEL || 'llama-3.3-70b-versatile';
+const LLM_BASE_URL = process.env.LLM_BASE_URL || 'https://generativelanguage.googleapis.com/v1beta/openai';
+const LLM_MODEL = process.env.LLM_MODEL || 'gemini-2.5-flash';
 const LLM_API_KEY = process.env.LLM_API_KEY || '';
 const MAX_INPUT = 8000; // chars of user text sent to the model
 const PUBLIC = path.join(__dirname, 'public');
