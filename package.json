@@ -1,0 +1,9 @@
+{
+  "name": "accord-prototype",
+  "version": "1.0.0",
+  "description": "Accord: two-sided, agent-run CRM prototype (8th Element PM assignment)",
+  "main": "server.js",
+  "scripts": { "start": "node server.js", "test": "node test.js" },
+  "engines": { "node": ">=18" },
+  "license": "MIT"
+}

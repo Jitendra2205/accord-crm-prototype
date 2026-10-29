@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Accord · the two-sided, agent-run CRM</title>
+<meta name="description" content="Prototype: a CRM where agents keep the record true, buyers get answers any time, and every field cites its source.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%230f766e'/><path d='M9 22l7-12 7 12' stroke='white' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<aside>
+  <a class="logo" href="#today"><span>⋀</span> Accord</a>
+  <p class="org">Cobalt Route · Asha Menon</p>
+  <nav>
+    <a href="#today">Today <span id="badge" class="badge"></span></a>
+    <a href="#capture/s1">Capture agent</a>
+    <a href="#pipeline">Pipeline</a>
+    <a href="#ask">Ask</a>
+    <a href="#brain">Brain <small>ACCORD.md</small></a>
+    <a href="#room" class="buyer">Buyer Room <small>buyer view</small></a>
+    <a href="#trust">Agent controls</a>
+  </nav>
+  <div class="foot">
+    <span id="mode" class="mode">checking…</span>
+    <a href="#about">About this prototype</a>
+    <small>Fictional demo data · demo date 29 Oct 2026</small>
+  </div>
+</aside>
+<main id="main" tabindex="-1"></main>
+<div id="toast" role="status" aria-live="polite"></div>
+<script src="/data.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>
