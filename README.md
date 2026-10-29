@@ -42,6 +42,9 @@ node test.js          # self-check: demo quotes are real, uncited changes droppe
 3. Add `LLM_API_KEY` under Environment (get a free key at aistudio.google.com/apikey). Leave it empty to run in demo mode.
 4. Free instances sleep after inactivity; open the link once a minute before you present.
 
+## Accounts
+Sign up, sign in, sign out and delete-my-account are real: passwords are hashed with scrypt, the session is an HMAC-signed HttpOnly cookie, attempts are rate limited. Storage is one JSON file (`data/users.json`), so on Render's free instance accounts are wiped on restart or redeploy. Signing in does not change the demo data. Set `SESSION_SECRET` to keep sessions across restarts (the Blueprint generates one).
+
 ## Honest scope
 Real: the UI, the agent prompts and endpoints, the evidence check, the escalation rule, the audit log.
 Simulated: sending messages, integrations (email, calendar, WhatsApp, telephony, CRM sync), the MCP endpoint, overnight activity.

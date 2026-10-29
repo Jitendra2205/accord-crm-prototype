@@ -17,13 +17,61 @@ const PUBLIC = path.join(__dirname, 'public');
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.json': 'application/json' };
 
 // shortcut: in-memory per-IP limit, resets on restart; move to Redis if this ever runs multi-instance.
-const hits = new Map();
-function rateLimited(ip) {
-  const now = Date.now(), win = 60 * 60 * 1000, max = 60;
-  if (hits.size > 5000) for (const [k, v] of hits) if (!v.some(t => now - t < win)) hits.delete(k);
-  const arr = (hits.get(ip) || []).filter(t => now - t < win);
-  arr.push(now); hits.set(ip, arr);
-  return arr.length > max;
+const makeLimiter = max => {
+  const hits = new Map();
+  return ip => {
+    const now = Date.now(), win = 60 * 60 * 1000;
+    if (hits.size > 5000) for (const [k, v] of hits) if (!v.some(t => now - t < win)) hits.delete(k);
+    const arr = (hits.get(ip) || []).filter(t => now - t < win);
+    arr.push(now); hits.set(ip, arr);
+    return arr.length > max;
+  };
+};
+const rateLimited = makeLimiter(60), authLimited = makeLimiter(30); // agent calls / account attempts per IP per hour
+
+// --- Prototype accounts ---
+// Real: scrypt password hashes, HMAC-signed HttpOnly session cookie, per-IP attempt limit, delete-my-account.
+// shortcut: users live in one JSON file, which is wiped when Render restarts or redeploys the free instance; move to Postgres for a real launch.
+const crypto = require('crypto'), { promisify } = require('util'), scrypt = promisify(crypto.scrypt);
+const AUTH_FILE = process.env.AUTH_FILE || path.join(__dirname, 'data', 'users.json');
+const SESSION_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex'); // random per boot unless set: sessions end on restart
+const MAX_USERS = 500, SESSION_MS = 7 * 24 * 3600 * 1000;
+let users = []; try { users = JSON.parse(fs.readFileSync(AUTH_FILE, 'utf8')); } catch { /* first run */ }
+const saveUsers = () => { try { fs.mkdirSync(path.dirname(AUTH_FILE), { recursive: true }); fs.writeFileSync(AUTH_FILE, JSON.stringify(users)); } catch (e) { console.error('could not save users:', e.message); } };
+const sign = v => crypto.createHmac('sha256', SESSION_SECRET).update(v).digest('base64url');
+const sessionCookie = (req, val, maxAge) => `accord_session=${val}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${maxAge}${req.headers['x-forwarded-proto'] === 'https' ? '; Secure' : ''}`;
+function sessionUser(req) {
+  const m = /(?:^|;\s*)accord_session=([^;]+)/.exec(req.headers.cookie || ''); if (!m) return null;
+  const [id, exp, sig] = m[1].split('.'), good = sign(id + '.' + exp);
+  if (!sig || sig.length !== good.length || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(good)) || Date.now() > Number(exp)) return null;
+  return users.find(u => u.id === id) || null;
+}
+const startSession = (req, u) => { const exp = Date.now() + SESSION_MS, v = u.id + '.' + exp; return sessionCookie(req, v + '.' + sign(v), SESSION_MS / 1000); };
+const publicUser = u => ({ name: u.name, email: u.email, created: u.created });
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+async function authRoute(req, res, pathname) {
+  if (!/application\/json/.test(req.headers['content-type'] || '')) return send(res, 415, { error: 'Send JSON' });
+  if (authLimited(clientIp(req))) return send(res, 429, { error: 'Too many attempts. Try again in an hour.' });
+  const b = await readBody(req), email = str(b.email, 120).trim().toLowerCase(), pw = typeof b.password === 'string' ? b.password : '';
+  if (pathname === '/api/logout') return send(res, 200, { ok: true }, { 'Set-Cookie': sessionCookie(req, '', 0) });
+  if (pathname === '/api/account/delete') {
+    const u = sessionUser(req); if (!u) return send(res, 401, { error: 'Sign in first' });
+    users = users.filter(x => x !== u); saveUsers(); return send(res, 200, { ok: true }, { 'Set-Cookie': sessionCookie(req, '', 0) });
+  }
+  if (pathname === '/api/signup') {
+    const name = str(b.name, 60).trim();
+    if (!name) return send(res, 400, { error: 'Enter your name' });
+    if (!EMAIL.test(email)) return send(res, 400, { error: 'Enter a valid email address' });
+    if (pw.length < 8 || pw.length > 128) return send(res, 400, { error: 'Password must be 8 to 128 characters' });
+    if (users.length >= MAX_USERS) return send(res, 503, { error: 'Sign-ups are full for this prototype' });
+    if (users.some(u => u.email === email)) return send(res, 409, { error: 'An account with this email already exists. Sign in instead.' });
+    const salt = crypto.randomBytes(16).toString('hex'), u = { id: crypto.randomBytes(8).toString('hex'), name, email, salt, hash: (await scrypt(pw, salt, 64)).toString('hex'), created: new Date().toISOString().slice(0, 10) };
+    users.push(u); saveUsers(); return send(res, 200, { user: publicUser(u) }, { 'Set-Cookie': startSession(req, u) });
+  }
+  // login: always run scrypt, so an unknown email takes as long as a wrong password
+  const u = users.find(x => x.email === email), salt = u ? u.salt : '0'.repeat(32), got = await scrypt(pw, salt, 64);
+  if (!u || !crypto.timingSafeEqual(got, Buffer.from(u.hash, 'hex'))) return send(res, 401, { error: 'Wrong email or password' });
+  return send(res, 200, { user: publicUser(u) }, { 'Set-Cookie': startSession(req, u) });
 }
 // Behind Render's proxy the socket address is the proxy, so use the first X-Forwarded-For hop.
 const clientIp = req => String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket.remoteAddress;
@@ -122,8 +170,8 @@ async function readBody(req) {
   return JSON.parse(b || '{}');
 }
 
-function send(res, code, obj) {
-  res.writeHead(code, { 'Content-Type': 'application/json' });
+function send(res, code, obj, headers = {}) {
+  res.writeHead(code, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...headers });
   res.end(JSON.stringify(obj));
 }
 
@@ -132,6 +180,9 @@ const server = http.createServer(async (req, res) => {
   try {
     if (req.method === 'GET' && url.pathname === '/api/status')
       return send(res, 200, { live: !!LLM_API_KEY, model: LLM_API_KEY ? LLM_MODEL : null });
+
+    if (req.method === 'GET' && url.pathname === '/api/me') { const u = sessionUser(req); return send(res, 200, { user: u ? publicUser(u) : null }); }
+    if (req.method === 'POST' && ['/api/signup', '/api/login', '/api/logout', '/api/account/delete'].includes(url.pathname)) return authRoute(req, res, url.pathname);
 
     if (req.method === 'POST' && url.pathname.startsWith('/api/')) {
       if (rateLimited(clientIp(req))) return send(res, 429, { error: 'Rate limit: 60 agent calls/hour. Try later.' });
@@ -191,4 +242,4 @@ const server = http.createServer(async (req, res) => {
 });
 
 if (require.main === module) server.listen(PORT, () => console.log(`Accord on :${PORT} (${LLM_API_KEY ? 'live ' + LLM_MODEL : 'demo mode'})`));
-module.exports = { cleanCapture, demoBuyer, COMMERCIAL };
+module.exports = { cleanCapture, demoBuyer, COMMERCIAL, server };

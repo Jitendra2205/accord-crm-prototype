@@ -278,6 +278,42 @@ function bindRoom() {
   const m = $('#msgs'); m.scrollTop = m.scrollHeight; chatSeen = S.chat.length;
 }
 
+/* ---------------- Charts: inline SVG, no libraries; each has a text summary and the table below is the accessible alternative ---------------- */
+const kfmt = n => n >= 1000 ? '$' + +(n / 1000).toFixed(1) + 'k' : '$' + n;
+const C_REP = '#98a2b3', C_EV = '#0f766e';
+function barChart(cats, series, label) {
+  const W = 560, H = 250, L = 46, R = 8, T = 18, B = 34, max = Math.max(1, ...series.flatMap(s => s.vals)), top = Math.ceil(max / 20000) * 20000 || 20000;
+  const gw = (W - L - R) / cats.length, bw = Math.min(46, (gw - 18) / series.length), y = v => T + (H - T - B) * (1 - v / top);
+  const grid = [0, .25, .5, .75, 1].map(f => `<line x1="${L}" x2="${W - R}" y1="${y(top * f)}" y2="${y(top * f)}" class="ch-grid"/><text x="${L - 6}" y="${y(top * f) + 4}" text-anchor="end" class="ch-t">${kfmt(top * f)}</text>`).join('');
+  const bars = cats.map((c, i) => { const x0 = L + gw * i + (gw - bw * series.length) / 2;
+    return series.map((s, j) => { const v = s.vals[i], x = x0 + bw * j;
+      return `<g><title>${esc(c)} · ${esc(s.name)}: ${money(v)}</title><rect x="${x}" y="${y(v)}" width="${bw - 3}" height="${Math.max(0, H - B - y(v))}" rx="3" fill="${s.color}" class="ch-bar" style="--d:${i * 60 + j * 30}ms"/>${v ? `<text x="${x + (bw - 3) / 2}" y="${y(v) - 5}" text-anchor="middle" class="ch-v">${kfmt(v)}</text>` : ''}</g>`; }).join('') +
+      `<text x="${L + gw * i + gw / 2}" y="${H - 12}" text-anchor="middle" class="ch-t">${esc(c)}</text>`; }).join('');
+  return `<svg viewBox="0 0 ${W} ${H}" class="chart" role="img" aria-label="${esc(label)}">${grid}${bars}</svg>`;
+}
+function donut(items, centre) {
+  const total = items.reduce((a, i) => a + i.value, 0) || 1, R = 52, C = 2 * Math.PI * R; let off = 0;
+  const arcs = items.filter(i => i.value).map(i => { const len = C * i.value / total, el = `<circle r="${R}" cx="70" cy="70" fill="none" stroke="${i.color}" stroke-width="22" stroke-dasharray="${len} ${C - len}" stroke-dashoffset="${-off}" transform="rotate(-90 70 70)"><title>${esc(i.label)}: ${money(i.value)}</title></circle>`; off += len; return el; }).join('');
+  return `<div class="donut"><svg viewBox="0 0 140 140" class="chart" role="img" aria-label="${esc(items.map(i => `${i.label} ${money(i.value)}`).join(', '))}">${arcs}<text x="70" y="68" text-anchor="middle" class="ch-big">${esc(centre)}</text><text x="70" y="84" text-anchor="middle" class="ch-t">open value</text></svg>
+    <ul class="legend">${items.map(i => `<li><i style="background:${i.color}"></i><b>${esc(i.label)}</b> ${money(i.value)} <small>${Math.round(100 * i.value / total)}%</small></li>`).join('')}</ul></div>`;
+}
+function pipelineCharts(open) {
+  const STG = ['Discovery', 'Evaluation', 'Proposal', 'Negotiation'], sum = f => open.filter(f).reduce((a, d) => a + d.amount, 0);
+  const rep = STG.map(s => sum(d => d.stage === s)), ev = STG.map(s => sum(d => (d.evidenceStage || d.stage) === s));
+  const ahead = open.filter(d => d.evidenceStage && STAGE_ORDER(d.evidenceStage) < STAGE_ORDER(d.stage)), aheadV = ahead.reduce((a, d) => a + d.amount, 0);
+  const months = [...new Set(open.map(d => d.close.slice(0, 7)))].sort(), mLabel = m => new Date(m + '-01T00:00:00').toLocaleDateString('en-GB', { month: 'short', year: '2-digit' });
+  const byMonth = months.map(m => open.filter(d => d.close.startsWith(m)).reduce((a, d) => a + d.amount, 0));
+  const health = [['good', 'On track', '#067647'], ['watch', 'Watch', '#f79009'], ['risk', 'At risk', '#b42318']].map(([h, label, color]) => ({ label, color, value: sum(d => d.health === h) }));
+  return `<div class="charts">
+    <section class="panel wide"><h3>Pipeline by stage <small class="muted">rep-set vs evidence-supported</small></h3>
+      ${barChart(STG, [{ name: 'Rep stage', color: C_REP, vals: rep }, { name: 'Evidence stage', color: C_EV, vals: ev }], 'Open pipeline value by stage, comparing the stage set by the rep with the stage the evidence supports')}
+      <div class="legend inline"><span><i style="background:${C_REP}"></i>Rep stage</span><span><i style="background:${C_EV}"></i>Evidence stage</span></div>
+      <p class="insight">${ahead.length ? `<b>${money(aheadV)}</b> in ${ahead.length} deal${ahead.length > 1 ? 's' : ''} sits ahead of its evidence (${ahead.map(d => esc(d.name)).join(', ')}).` : 'Every verified deal is at the stage its evidence supports.'} Unverified deals are shown at the rep stage.</p></section>
+    <section class="panel"><h3>Deal health <small class="muted">by value</small></h3>${donut(health, money(open.reduce((a, d) => a + d.amount, 0)))}</section>
+    <section class="panel"><h3>Expected closes <small class="muted">by month, rep dates</small></h3>${barChart(months.map(mLabel), [{ name: 'Open value', color: C_EV, vals: byMonth }], 'Open pipeline value by expected close month')}</section></div>`;
+}
+const STAGE_ORDER = s => ['Discovery', 'Evaluation', 'Proposal', 'Negotiation', 'Closed Won', 'Closed Lost'].indexOf(s);
+
 /* ---------------- Pipeline ---------------- */
 function viewPipeline() {
   const open = S.deals.filter(d => !d.stage.startsWith('Closed'));
@@ -291,7 +327,8 @@ function viewPipeline() {
     <div class="stat hl"><b>${money(Math.round(evF))}</b><span>weighted, by evidence${unverified ? ` (${unverified} unverified)` : ''}</span></div>
     <div class="stat"><b>${open.filter(d => d.evidenceStage && d.evidenceStage !== d.stage).length}</b><span>stage mismatches</span></div>
   </div>
-  <div class="panel"><table class="pipe"><thead><tr><th>Deal</th><th>Owner</th><th>Amount</th><th>Rep stage</th><th>Evidence stage</th><th>Close</th><th>Why</th></tr></thead><tbody>
+  ${pipelineCharts(open)}
+  <div class="panel"><h3>All open deals <small class="muted">the table behind the charts</small></h3><table class="pipe"><thead><tr><th>Deal</th><th>Owner</th><th>Amount</th><th>Rep stage</th><th>Evidence stage</th><th>Close</th><th>Why</th></tr></thead><tbody>
   ${open.map(d => { const mm = d.evidenceStage && d.evidenceStage !== d.stage; return `<tr><td><a href="#deal/${d.id}"><span class="dot ${d.health}"></span>${esc(d.name)}</a></td><td>${esc(d.owner)}</td><td>${money(d.amount)}</td><td>${esc(d.stage)}</td>
     <td class="${mm ? 'warn' : ''}">${esc(d.evidenceStage || 'Not verified')}${mm ? ' ⚠' : ''}</td><td>${dateFmt(d.close)}</td>
     <td class="small">${esc(d.fields ? (d.fields.risks.value || d.fields.next_step.value) : (d.risks?.[0] || d.evidence))}</td></tr>`; }).join('')}
@@ -418,6 +455,57 @@ function bindBrain() {
   });
 }
 
+/* ---------------- Accounts (real server-side auth; prototype storage) ---------------- */
+S.user = null;
+function paintAcct() { $('#acctBtn').textContent = S.user ? `${S.user.name} · my account` : 'Sign in or create account'; }
+function viewAccount() {
+  const u = S.user;
+  return `<header class="page-h"><div><h1>Account</h1><p class="sub">Prototype accounts: sign-up and sign-in are real, but storage is a file on the server that is wiped when the server restarts. Your name does not change the demo data.</p></div></header>
+  <div class="panel narrow">${u ? `<table class="fields"><tr><td class="fl">Name</td><td>${esc(u.name)}</td></tr><tr><td class="fl">Email</td><td>${esc(u.email)}</td></tr><tr><td class="fl">Created</td><td>${esc(u.created)}</td></tr></table>
+    <div class="row"><button class="btn" id="signOut">Sign out</button><button class="btn danger" id="delAcct">Delete my account</button></div>
+    <p class="muted small">Passwords are hashed with scrypt and never stored in clear text. Deleting removes your name, email and password hash from the server.</p>`
+    : `<p>You are using the demo without an account. Create one to see how sign-up and sign-in work.</p><div class="row"><button class="btn primary" id="acctSignIn">Sign in or create account</button></div>`}</div>`;
+}
+function bindAccount() {
+  const go = async (path, msg) => { const j = await post(path, {}); if (j.error) return toast(j.error); S.user = null; paintAcct(); toast(msg); render(); };
+  if ($('#signOut')) $('#signOut').onclick = () => go('/api/logout', 'Signed out');
+  if ($('#delAcct')) $('#delAcct').onclick = () => confirm('Delete your account? This cannot be undone.') && go('/api/account/delete', 'Account deleted');
+  if ($('#acctSignIn')) $('#acctSignIn').onclick = () => openAuth('signup');
+}
+function openAuth(mode = 'signup') {
+  const old = $('#authModal'); if (old) old.remove();
+  const from = document.activeElement, su = mode === 'signup';
+  document.body.insertAdjacentHTML('beforeend', `<div class="tour-back" id="authModal"><div class="tour" role="dialog" aria-modal="true" aria-labelledby="authH"><form class="tour-body auth" id="authForm" novalidate>
+    <div class="tabs" role="tablist"><button type="button" role="tab" aria-selected="${su}" data-m="signup">Create account</button><button type="button" role="tab" aria-selected="${!su}" data-m="login">Sign in</button></div>
+    <h2 id="authH">${su ? 'Create your account' : 'Welcome back'}</h2>
+    ${su ? '<label>Name<input name="name" autocomplete="name" maxlength="60" required></label>' : ''}
+    <label>Email<input type="email" name="email" autocomplete="email" maxlength="120" required></label>
+    <label>Password<input type="password" name="password" autocomplete="${su ? 'new-password' : 'current-password'}" maxlength="128" required>${su ? '<small class="muted">At least 8 characters</small>' : ''}</label>
+    <p class="err" id="authErr" role="alert"></p>
+    <button class="btn primary wide-btn" type="submit" id="authGo">${su ? 'Create account' : 'Sign in'}</button>
+    <p class="muted small">Prototype accounts. Sign-up is real (password hashed with scrypt, secure session cookie) but stored in a file that resets when the server restarts. Use a throwaway password. No emails are sent.</p>
+    <button type="button" class="linkbtn dark" id="authSkip">Continue without an account</button></form></div></div>`);
+  const el = $('#authModal'), form = $('#authForm');
+  const close = () => { document.removeEventListener('keydown', keys); el.classList.add('closing'); setTimeout(() => { el.remove(); from && from.focus && from.focus(); }, 160); };
+  const keys = e => { if (e.key === 'Escape') return close(); if (e.key === 'Tab') { const f = [...el.querySelectorAll('input,button')], a = f[0], z = f[f.length - 1]; if (e.shiftKey && document.activeElement === a) { e.preventDefault(); z.focus(); } else if (!e.shiftKey && document.activeElement === z) { e.preventDefault(); a.focus(); } } };
+  document.addEventListener('keydown', keys); el.addEventListener('mousedown', e => { if (e.target === el) close(); });
+  $('#authSkip').onclick = close;
+  el.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { document.removeEventListener('keydown', keys); el.remove(); openAuth(b.dataset.m); });
+  form.onsubmit = async e => {
+    e.preventDefault(); const f = Object.fromEntries(new FormData(form)), err = m => { $('#authErr').textContent = m; };
+    if (su && !f.name.trim()) return err('Enter your name');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(f.email)) return err('Enter a valid email address');
+    if (f.password.length < 8) return err('Password must be at least 8 characters');
+    err(''); const btn = $('#authGo'); btn.disabled = true; btn.textContent = su ? 'Creating…' : 'Signing in…';
+    const j = await post(su ? '/api/signup' : '/api/login', f);
+    if (j.error) { err(j.error); btn.disabled = false; btn.textContent = su ? 'Create account' : 'Sign in'; return; }
+    S.user = j.user; paintAcct(); toast(su ? `Welcome, ${j.user.name}` : `Signed in as ${j.user.name}`); close(); if (location.hash === '#account') render();
+  };
+  form.querySelector('input').focus();
+}
+document.addEventListener('click', e => { if (e.target.closest('#acctBtn')) S.user ? (location.hash = '#account') : openAuth('signup'); });
+fetch('/api/me').then(r => r.json()).then(j => { S.user = j.user; paintAcct(); if (location.hash === '#account') render(); }).catch(() => {});
+
 /* ---------------- Onboarding tour ---------------- */
 const TOUR_KEY = 'accord_tour_seen';
 const tourSeen = () => { try { return !!localStorage.getItem(TOUR_KEY); } catch { return false; } };
@@ -476,7 +564,7 @@ document.addEventListener('click', e => {
 });
 
 /* ---------------- Router ---------------- */
-const ROUTES = { brain: [viewBrain, bindBrain], today: [viewToday, bindToday], deal: [viewDeal], capture: [viewCapture, bindCapture], room: [viewRoom, bindRoom], pipeline: [viewPipeline], ask: [viewAsk, bindAsk], trust: [viewTrust, bindTrust], about: [viewAbout] };
+const ROUTES = { brain: [viewBrain, bindBrain], today: [viewToday, bindToday], deal: [viewDeal], capture: [viewCapture, bindCapture], room: [viewRoom, bindRoom], pipeline: [viewPipeline], ask: [viewAsk, bindAsk], trust: [viewTrust, bindTrust], about: [viewAbout], account: [viewAccount, bindAccount] };
 function render() {
   const [r, arg] = (location.hash.slice(1) || 'today').split('/');
   const [view, bind] = ROUTES[r] || ROUTES.today;
@@ -484,7 +572,7 @@ function render() {
   const route = r + '/' + (arg || ''); // entrance animation only when the page changes, not on every state update
   if (route !== lastRoute) { lastRoute = route; $('#main').classList.add('enter'); $('#main').querySelectorAll('.page-h,.stat,.card,.panel,.learn').forEach((el, i) => el.style.setProperty('--i', Math.min(i, 9))); setTimeout(() => $('#main').classList.remove('enter'), 900); }
   document.querySelectorAll('nav a').forEach(a => { const on = a.getAttribute('href').split('/')[0].slice(1) === r || (r === 'deal' && a.getAttribute('href') === '#pipeline'); a.classList.toggle('on', on); on ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current'); });
-  document.title = ({ today: 'Today', capture: 'Capture agent', deal: 'Deal', pipeline: 'Pipeline', ask: 'Ask', brain: 'Company Brain', room: 'Buyer Room', trust: 'Agent controls', about: 'About' }[r] || 'Today') + ' · Accord';
+  document.title = ({ today: 'Today', capture: 'Capture agent', deal: 'Deal', pipeline: 'Pipeline', ask: 'Ask', brain: 'Company Brain', room: 'Buyer Room', trust: 'Agent controls', about: 'About', account: 'Account' }[r] || 'Today') + ' · Accord';
   const n = S.today.filter(i => !S.done.has(i.id)).length; $('#badge').textContent = n || '';
   $('#main').focus({ preventScroll: true });
 }
