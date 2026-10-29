@@ -1,6 +1,7 @@
 /* Accord prototype - vanilla JS, hash routing, in-memory state (reload = reset). */
 const S = structuredClone(window.SEED);
-S.done = new Set(); S.chat = []; S.audit = []; S.captured = new Set();
+S.done = new Set(); S.chat = []; S.audit = []; S.captured = new Set(); S.brainStart = S.brainVersion;
+let chatSeen = 0, lastRoute = null; // animate only what is new: the latest chat message, and a page only when the route changes
 let LIVE = false, MODEL = null, lastCapture = null;
 
 const $ = s => document.querySelector(s);
@@ -244,16 +245,17 @@ function viewRoom() {
     <section class="panel chat">
       <h3>Ask Cobalt Route <small class="muted">answers only from approved content · ${LIVE ? 'live AI' : 'demo retrieval'}</small></h3>
       <p class="muted small">Prototype: the approved answers come from the Brain in this browser tab. A real deployment would keep them server-side.</p>
-      <div id="msgs" role="log" aria-live="polite">${S.chat.length ? S.chat.map(msg).join('') : '<div class="empty">Ask about security, rollout, pricing or the pilot.</div>'}</div>
+      <div id="msgs" role="log" aria-live="polite">${S.chat.length ? S.chat.map((m, i) => msg(m, i >= chatSeen)).join('') : '<div class="empty">Ask about security, rollout, pricing or the pilot.</div>'}</div>
       <div class="samples">${ROOM_Q.map(q => `<button class="pill" data-q="${esc(q)}">${esc(q)}</button>`).join('')}</div>
       <div class="row"><input id="roomQ" aria-label="Your question" placeholder="Type a question…"><button class="btn primary" id="roomSend">Ask</button></div>
     </section>
   </div>`;
 }
-function msg(m) {
-  if (m.who === 'buyer') return `<div class="msg me">${esc(m.text)}</div>`;
+function msg(m, fresh) {
+  const pop = fresh ? ' pop' : '';
+  if (m.who === 'buyer') return `<div class="msg me${pop}">${esc(m.text)}</div>`;
   const K = kb(), src = (m.sources || []).map(id => K.find(k => k.id === id)).filter(Boolean);
-  return `<div class="msg bot ${m.escalate ? 'esc' : ''}">${esc(m.text)}${src.length ? `<div class="srcs">${src.map(k => `<span class="chip">${esc(k.id)} · ${esc(k.title)}</span>`).join('')}</div>` : ''}${m.escalate ? '<div class="srcs"><span class="chip warn">Handed to Asha (account executive)</span></div>' : ''}</div>`;
+  return `<div class="msg bot ${m.escalate ? 'esc' : ''}${pop}">${esc(m.text)}${src.length ? `<div class="srcs">${src.map(k => `<span class="chip">${esc(k.id)} · ${esc(k.title)}</span>`).join('')}</div>` : ''}${m.escalate ? '<div class="srcs"><span class="chip warn">Handed to Asha (account executive)</span></div>' : ''}</div>`;
 }
 function bindRoom() {
   const ask = async q => {
@@ -273,7 +275,7 @@ function bindRoom() {
   document.querySelectorAll('[data-q]').forEach(b => b.onclick = () => ask(b.dataset.q));
   $('#roomSend').onclick = () => ask($('#roomQ').value);
   $('#roomQ').onkeydown = e => { if (e.key === 'Enter') ask(e.target.value); };
-  const m = $('#msgs'); m.scrollTop = m.scrollHeight;
+  const m = $('#msgs'); m.scrollTop = m.scrollHeight; chatSeen = S.chat.length;
 }
 
 /* ---------------- Pipeline ---------------- */
@@ -361,6 +363,7 @@ let brainEdit = false;
 function viewBrain() {
   const learned = (S.brain.match(/\[learned:/g) || []).length, K = kb().length;
   return `<header class="page-h"><div><h1>Company Brain</h1><p class="sub">ACCORD.md: what every agent knows about Cobalt Route, its product and how it sells. You own it and can edit it like a document. Use makes it sharper: the agents propose additions, a person approves them.</p></div></header>
+  <p class="muted small brainver" aria-live="polite">${S.brainVersion === S.brainStart ? `Brain v${S.brainVersion} · no changes yet this session` : `Brain v${S.brainStart} → v${S.brainVersion} this session · ${S.brainVersion - S.brainStart} approved change${S.brainVersion - S.brainStart > 1 ? 's' : ''}`}</p>
   <div class="stats">
     <div class="stat"><b>v${S.brainVersion}</b><span>current version</span></div>
     <div class="stat"><b>${learned}</b><span>lines learned from use</span></div>
@@ -369,7 +372,7 @@ function viewBrain() {
   </div>
   <div class="grid2">
     <section class="panel brainfile"><div class="row" style="justify-content:space-between;margin:0 0 8px"><h3 style="margin:0">ACCORD.md <small class="muted">read by the seller agent, Buyer Room and Ask</small></h3>
-      <button class="btn ghost" id="brainEditBtn">${brainEdit ? 'Save' : 'Edit'}</button></div>
+      <span class="row" style="margin:0"><button class="btn ghost" id="brainDl">Download ACCORD.md</button><button class="btn ghost" id="brainEditBtn">${brainEdit ? 'Save' : 'Edit'}</button></span></div>
       ${brainEdit ? `<textarea id="brainText" rows="34">${esc(S.brain)}</textarea>` : `<div class="brainmd">${renderBrain(S.brain)}</div>`}
     </section>
     <section>
@@ -389,6 +392,11 @@ function viewBrain() {
     </section></div>`;
 }
 function bindBrain() {
+  $('#brainDl').onclick = () => { // current Brain text, including unsaved edits in the editor
+    const text = brainEdit ? $('#brainText').value : S.brain, a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([text], { type: 'text/markdown' })); a.download = 'ACCORD.md'; a.click(); URL.revokeObjectURL(a.href);
+    toast('Downloaded ACCORD.md');
+  };
   $('#brainEditBtn').onclick = () => {
     if (brainEdit) { const t = $('#brainText').value; if (t !== S.brain) { S.brain = t; S.brainVersion++; audit('Asha', `Edited ACCORD.md (v${S.brainVersion})`); toast(`Brain saved as v${S.brainVersion}`); } }
     brainEdit = !brainEdit; render();
@@ -410,12 +418,71 @@ function bindBrain() {
   });
 }
 
+/* ---------------- Onboarding tour ---------------- */
+const TOUR_KEY = 'accord_tour_seen';
+const tourSeen = () => { try { return !!localStorage.getItem(TOUR_KEY); } catch { return false; } };
+const tourMark = () => { try { localStorage.setItem(TOUR_KEY, '1'); } catch { /* private mode: tour shows again, which is fine */ } };
+const TOUR = [
+  { k: 'Welcome', h: 'A CRM that keeps its own record', p: 'Today a CRM is a notebook that reps fill in for their managers. In Accord an agent reads your calls, emails and chats, proposes the updates, and you approve them. You sell; the record stays true.',
+    art: `<span class="chip">${CH_ICON.call} Call</span><span class="chip">${CH_ICON.email} Email</span><span class="chip">${CH_ICON.whatsapp} WhatsApp</span><i class="arrow">→</i><span class="chip learned">Deal record, kept current</span>` },
+  { k: 'Trust', h: 'Every change shows where it came from', p: 'The agent cannot change a field without quoting the exact words that justify it. If the quote is not in the source, the change is blocked. You can always open a field and see the evidence.',
+    art: `<div class="mini-src">“we’ve set aside around sixty thousand dollars for year one”</div><i class="arrow">→</i><div class="mini-field"><small>Amount</small><b>$60,000</b><span class="chip conf-high">high · cited</span></div>` },
+  { k: 'Buyer Room', h: 'Buyers get answers too, from approved content only', p: 'Each deal has a shared room for the buyer. Their questions are answered any time, only from answers your company approved. Discounts, custom terms and anything unknown go to a person.',
+    art: `<div class="msg me">Do you support Okta SSO?</div><div class="msg bot">Yes, SAML 2.0 on Pro and above. <span class="chip">K1 · SSO</span></div><div class="msg bot esc">Can you give us 20% off? <span class="chip warn">Handed to Asha</span></div>`, col: true },
+  { k: 'Company Brain', h: 'A file your company owns, that gets sharper with use', p: 'ACCORD.md holds your stages, voice, rules and approved answers. Every agent reads it first. When buyers ask something it cannot answer, it proposes an addition; nothing joins the Brain until a person approves.',
+    art: `<pre class="learn-add">## Voice\n- Open with the point; never "hope this finds you well".\n- To finance contacts, lead with one proof number. <span class="chip learned">learned: from 5 rep edits</span></pre>`, col: true },
+  { k: 'Try it', h: 'Two minutes, four clicks', p: 'Everything here is fictional demo data, and sending messages and integrations are simulated. The AI parts are real when the server has a model key; the sidebar badge tells you which mode you are in.',
+    art: `<ol class="steps"><li>Open the <b>Lumen call</b> in Capture and run the agent</li><li>Apply the changes and watch the <b>deal record fill, with sources</b></li><li>In <b>Buyer Room</b>, ask “What happens to our data if we cancel?”</li><li>Open the <b>Brain</b>, approve the suggestion, and ask again</li></ol>`, col: true, last: true },
+];
+let tourStep = 0, tourFrom = null;
+function openTour(start = 0) {
+  if ($('#tour')) return;
+  tourFrom = document.activeElement; tourStep = start;
+  document.body.insertAdjacentHTML('beforeend', `<div class="tour-back" id="tour"><div class="tour" role="dialog" aria-modal="true" aria-labelledby="tourH"><div class="tour-body" id="tourBody"></div><div class="tour-foot" id="tourFoot"></div></div></div>`);
+  paintTour(0); document.addEventListener('keydown', tourKeys);
+  $('#tour').addEventListener('mousedown', e => { if (e.target.id === 'tour') closeTour(); });
+}
+function paintTour(dir) {
+  const s = TOUR[tourStep], n = TOUR.length, body = $('#tourBody');
+  body.className = 'tour-body' + (dir > 0 ? ' fwd' : dir < 0 ? ' bwd' : '');
+  body.innerHTML = `<p class="kind">${esc(s.k)} · ${tourStep + 1} of ${n}</p><h2 id="tourH">${esc(s.h)}</h2><p class="tour-p">${esc(s.p)}</p><div class="tour-art${s.col ? ' col' : ''}">${s.art}</div>`;
+  $('#tourFoot').innerHTML = `<div class="dots" aria-hidden="true">${TOUR.map((_, i) => `<i class="${i === tourStep ? 'on' : ''}"></i>`).join('')}</div>
+    <button class="btn ghost" id="tourSkip">${s.last ? 'Explore on my own' : 'Skip tour'}</button>
+    ${tourStep ? '<button class="btn" id="tourBack">Back</button>' : ''}
+    <button class="btn primary" id="tourNext">${s.last ? 'Open the Lumen call' : 'Next'}</button>`;
+  $('#tourSkip').onclick = () => closeTour();
+  if (tourStep) $('#tourBack').onclick = () => tourGo(-1);
+  $('#tourNext').onclick = () => s.last ? closeTour('#capture/s1') : tourGo(1);
+  $('#tourNext').focus();
+}
+function tourGo(d) { const t = tourStep + d; if (t < 0 || t >= TOUR.length) return; tourStep = t; paintTour(d); }
+function tourKeys(e) {
+  if (e.key === 'Escape') return closeTour();
+  if (e.key === 'ArrowRight') return tourGo(1);
+  if (e.key === 'ArrowLeft') return tourGo(-1);
+  if (e.key === 'Tab') { // keep focus inside the dialog
+    const f = [...$('#tour').querySelectorAll('button')], first = f[0], last = f[f.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); } else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  }
+}
+function closeTour(go) {
+  const el = $('#tour'); if (!el) return;
+  tourMark(); document.removeEventListener('keydown', tourKeys); el.classList.add('closing');
+  setTimeout(() => { el.remove(); if (go) location.hash = go; else if (tourFrom && tourFrom.focus) tourFrom.focus(); }, 160);
+}
+document.addEventListener('click', e => {
+  if (e.target.closest('#tourOpen')) openTour();
+  if (e.target.closest('#resetDemo')) { location.hash = '#today'; location.reload(); } // state is in-memory, so a reload restores the seed
+});
+
 /* ---------------- Router ---------------- */
 const ROUTES = { brain: [viewBrain, bindBrain], today: [viewToday, bindToday], deal: [viewDeal], capture: [viewCapture, bindCapture], room: [viewRoom, bindRoom], pipeline: [viewPipeline], ask: [viewAsk, bindAsk], trust: [viewTrust, bindTrust], about: [viewAbout] };
 function render() {
   const [r, arg] = (location.hash.slice(1) || 'today').split('/');
   const [view, bind] = ROUTES[r] || ROUTES.today;
   $('#main').innerHTML = view(arg); bind && bind(arg);
+  const route = r + '/' + (arg || ''); // entrance animation only when the page changes, not on every state update
+  if (route !== lastRoute) { lastRoute = route; $('#main').classList.add('enter'); $('#main').querySelectorAll('.page-h,.stat,.card,.panel,.learn').forEach((el, i) => el.style.setProperty('--i', Math.min(i, 9))); setTimeout(() => $('#main').classList.remove('enter'), 900); }
   document.querySelectorAll('nav a').forEach(a => { const on = a.getAttribute('href').split('/')[0].slice(1) === r || (r === 'deal' && a.getAttribute('href') === '#pipeline'); a.classList.toggle('on', on); on ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current'); });
   document.title = ({ today: 'Today', capture: 'Capture agent', deal: 'Deal', pipeline: 'Pipeline', ask: 'Ask', brain: 'Company Brain', room: 'Buyer Room', trust: 'Agent controls', about: 'About' }[r] || 'Today') + ' · Accord';
   const n = S.today.filter(i => !S.done.has(i.id)).length; $('#badge').textContent = n || '';
@@ -424,3 +491,4 @@ function render() {
 window.addEventListener('hashchange', () => { window.scrollTo(0, 0); render(); });
 fetch('/api/status').then(r => r.json()).then(s => { LIVE = s.live; MODEL = s.model; $('#mode').textContent = LIVE ? 'Live AI · ' + MODEL : 'Demo mode · no API key'; $('#mode').className = 'mode ' + (LIVE ? 'live' : 'demo'); render(); }).catch(() => render());
 render();
+if (!tourSeen()) setTimeout(() => openTour(), 500); // first visit only

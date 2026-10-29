@@ -17,6 +17,8 @@ Today → *Review in Capture* (Lumen call) → run agent → apply → deal reco
 
 Brain loop (2 minutes): **Buyer Room** → ask "What happens to our data if we cancel?" → it escalates (no approved answer) → **Brain** → approve the K7 suggestion → ask again in the Buyer Room → answered from the Brain. Ask any other unknown question and a new "write the answer" suggestion appears in the Brain inbox.
 
+First visit opens a 5-step tour (reopen it from the sidebar: *Take the 1-minute tour*). *Reset demo* in the sidebar restores the seed state; the Brain page has *Download ACCORD.md*.
+
 ## Run locally
 ```bash
 node server.js        # Node 18+, no npm install needed

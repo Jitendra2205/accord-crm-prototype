@@ -63,7 +63,7 @@ Propose changes to the record. Rules:
 - Allowed fields: stage, amount, close_date, next_step, pain, decision_process, competitors, champion, economic_buyer, risks.
 - Stages: Discovery, Evaluation, Proposal, Negotiation, Closed Won, Closed Lost.
 - The draft follow-up goes back on the same channel, is short, specific, and in the buyer's language.
-- The draft is a proposal for the rep to approve, not a sent message. Never say anything is attached or already done, and never confirm a date, price, scope or other commitment the buyer did not already agree to or the Brain does not state. Ask or propose instead ("Can we...", "I will send ... by <date>" only if a next_step says so).
+- The draft is a proposal for the rep to approve, not a sent message. Never say anything is attached or already done, never invent a time, date or meeting slot, and never confirm a price, scope or other commitment the buyer did not already agree to or the Brain does not state. Ask or propose instead ("Can we...", "I will send ... by <date>" only if a next_step says so).
 - Stage must follow the Brain's stage definitions exactly: propose a stage only if the interaction or record shows every condition of that stage; quote the words that show it.
 - You are given the company's Brain (ACCORD.md). Follow its stage definitions, voice, rules and objection handling.
   List in "brain_used" the exact Brain lines you relied on, copied word for word (max 4).

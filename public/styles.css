@@ -112,3 +112,35 @@ nav a:focus-visible{outline-color:#fff}
   .msg{max-width:92%}
 }
 @media (max-width:420px){.card-top .auto{margin-left:0;width:100%}}
+
+/* ---- Motion: CSS only, transform + opacity, ease-out entrances, exits faster than entrances ---- */
+:root{--ease-out:cubic-bezier(.23,1,.32,1);--ease-io:cubic-bezier(.645,.045,.355,1)}
+@keyframes rise{from{opacity:0;transform:translateY(10px)}}
+@keyframes fade{from{opacity:0}}
+@keyframes pop{from{opacity:0;transform:scale(.96) translateY(6px)}}
+@keyframes slideF{from{opacity:0;transform:translateX(16px)}}
+@keyframes slideB{from{opacity:0;transform:translateX(-16px)}}
+.enter .page-h,.enter .stat,.enter .card,.enter .panel,.enter .learn{animation:rise .32s var(--ease-out) backwards;animation-delay:calc(var(--i,0)*45ms)}
+.msg.pop{animation:pop .22s var(--ease-out)}
+#toast{transition:opacity .2s var(--ease-out),transform .25s var(--ease-out)}
+.btn.primary:hover{box-shadow:0 2px 8px rgba(15,118,110,.3)}
+.pill:active{transform:scale(.97)}
+.linkbtn{background:none;border:0;padding:6px 0;color:#9fb3d1;font:inherit;text-align:left;cursor:pointer;min-height:32px}.linkbtn:hover{color:#fff;text-decoration:underline}.linkbtn:focus-visible{outline:2px solid #fff;outline-offset:2px;border-radius:4px}
+.brainver{margin:-6px 0 12px}
+/* onboarding tour */
+.tour-back{position:fixed;inset:0;background:rgba(14,23,38,.55);display:grid;place-items:center;padding:16px;z-index:40;animation:fade .2s linear}
+.tour{background:#fff;border-radius:16px;width:min(580px,100%);max-height:92vh;overflow:auto;box-shadow:0 24px 60px rgba(0,0,0,.3);animation:pop .28s var(--ease-out)}
+.tour-back.closing{opacity:0;transition:opacity .15s ease-in}.tour-back.closing .tour{transform:scale(.97) translateY(4px);transition:transform .15s ease-in;animation:none}
+.tour-body{padding:26px 28px 6px}.tour-body.fwd{animation:slideF .26s var(--ease-out)}.tour-body.bwd{animation:slideB .26s var(--ease-out)}
+.tour h2{font-size:23px;margin:4px 0 8px;letter-spacing:-.015em}.tour-p{margin:0;color:#344054;max-width:60ch}
+.tour-art{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:16px;margin:16px 0 10px;min-height:96px;display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap}
+.tour-art.col{flex-direction:column;align-items:stretch;justify-content:center}
+.tour-art>*{animation:rise .4s var(--ease-out) backwards}.tour-art>*:nth-child(2){animation-delay:.12s}.tour-art>*:nth-child(3){animation-delay:.24s}.tour-art>*:nth-child(4){animation-delay:.36s}.tour-art>*:nth-child(5){animation-delay:.48s}
+.tour-art .msg{max-width:100%;font-size:13px}.tour-art .msg.me{align-self:flex-end}.tour-art .arrow{font-style:normal;color:var(--muted);font-size:18px}
+.mini-src{background:#fffbe6;border:1px solid #fde68a;border-radius:8px;padding:8px 12px;font-size:13px;max-width:230px}
+.mini-field{background:#fff;border:1px solid var(--line);border-radius:8px;padding:8px 12px}.mini-field small{display:block;color:var(--muted);font-size:11px}.mini-field b{display:block;font-size:18px}
+.tour-art .learn-add{margin:0;white-space:pre-wrap}
+.steps{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px}.steps li::marker{color:var(--acc);font-weight:700}
+.tour-foot{display:flex;align-items:center;gap:8px;padding:10px 28px 22px}.tour-foot .dots{display:flex;gap:6px;margin-right:auto}
+.dots i{width:7px;height:7px;border-radius:50%;background:#d0d5dd;transition:background-color .2s,transform .2s var(--ease-out)}.dots i.on{background:var(--acc);transform:scale(1.35)}
+@media (max-width:900px){.tour-body{padding:20px 18px 4px}.tour-foot{padding:10px 18px 18px;flex-wrap:wrap}.tour-foot .dots{width:100%;margin-bottom:4px}.tour-foot .btn{flex:1}.linkbtn{min-height:44px}}
