@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0e1726">
 <title>Accord · the two-sided, agent-run CRM</title>
 <meta name="description" content="Prototype: a CRM where agents keep the record true, buyers get answers any time, and every field cites its source.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%230f766e'/><path d='M9 22l7-12 7 12' stroke='white' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>">
@@ -11,17 +12,18 @@
 <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
+<a class="skip" href="#main">Skip to content</a>
 <aside>
   <a class="logo" href="#today"><span>⋀</span> Accord</a>
   <p class="org">Cobalt Route · Asha Menon</p>
-  <nav>
-    <a href="#today">Today <span id="badge" class="badge"></span></a>
-    <a href="#capture/s1">Capture agent</a>
-    <a href="#pipeline">Pipeline</a>
-    <a href="#ask">Ask</a>
-    <a href="#brain">Brain <small>ACCORD.md</small></a>
-    <a href="#room" class="buyer">Buyer Room <small>buyer view</small></a>
-    <a href="#trust">Agent controls</a>
+  <nav aria-label="Main">
+    <a href="#today"><i><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>Today</i><span id="badge" class="badge" aria-label="items needing you"></span></a>
+    <a href="#capture/s1"><i><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3"/></svg>Capture agent</i></a>
+    <a href="#pipeline"><i><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg>Pipeline</i></a>
+    <a href="#ask"><i><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>Ask</i></a>
+    <a href="#brain"><i><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/><path d="M4 19.5V22h16"/></svg>Brain</i><small>ACCORD.md</small></a>
+    <a href="#room" class="buyer"><i><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-12.4 7.4L3 21l1.9-5.4A8.4 8.4 0 1 1 21 11.5z"/></svg>Buyer Room</i><small>buyer view</small></a>
+    <a href="#trust"><i><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Agent controls</i></a>
   </nav>
   <div class="foot">
     <span id="mode" class="mode">checking…</span>

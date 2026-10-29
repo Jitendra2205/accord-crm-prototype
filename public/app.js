@@ -10,7 +10,15 @@ const deal = id => S.deals.find(d => d.id === id);
 const dateFmt = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '-';
 const FIELD_LABEL = { stage: 'Stage', amount: 'Amount', close_date: 'Close date', next_step: 'Next step', pain: 'Pain / goal', decision_process: 'Decision process', competitors: 'Competitors', champion: 'Champion', economic_buyer: 'Economic buyer', risks: 'Risks' };
 const STAGE_P = { Discovery: 0.1, Evaluation: 0.25, Proposal: 0.5, Negotiation: 0.75, 'Closed Won': 1, 'Closed Lost': 0 };
-const CH_ICON = { call: '☎', email: '✉', whatsapp: '💬', room: '◧', doc: '▤' };
+// Lucide-style 24px stroke icons (inline SVG, inherit currentColor) instead of emoji/glyphs.
+const svg = p => `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
+const CH_ICON = {
+  call: svg('<path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"/>'),
+  email: svg('<rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/>'),
+  whatsapp: svg('<path d="M21 11.5a8.4 8.4 0 0 1-12.4 7.4L3 21l1.9-5.4A8.4 8.4 0 1 1 21 11.5z"/>'),
+  room: svg('<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/>'),
+  doc: svg('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h8"/>'),
+};
 
 function audit(who, what) { S.audit.unshift({ t: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }), who, what }); }
 function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), 2600); }
@@ -140,8 +148,8 @@ function viewCapture(sid) {
     <section class="panel">
       <h3>1 · Interaction <small class="muted">Deal: Lumen Logistics (matched from participants)</small></h3>
       <div class="samples">${Object.entries(S.samples).map(([k, v]) => `<button class="pill ${k === sid ? 'on' : ''}" data-s="${k}">${CH_ICON[v.channel]} ${esc(v.label)}${S.captured.has(k) ? ' ✓' : ''}</button>`).join('')}</div>
-      <textarea id="capText" rows="16" placeholder="Paste a call transcript, email or chat… (live AI mode only)">${esc(s ? s.text : '')}</textarea>
-      <div class="row"><select id="capCh">${['call', 'email', 'whatsapp'].map(c => `<option ${s && s.channel === c ? 'selected' : ''}>${c}</option>`).join('')}</select>
+      <textarea id="capText" aria-label="Interaction text" rows="16" placeholder="Paste a call transcript, email or chat… (live AI mode only)">${esc(s ? s.text : '')}</textarea>
+      <div class="row"><select id="capCh" aria-label="Channel">${['call', 'email', 'whatsapp'].map(c => `<option ${s && s.channel === c ? 'selected' : ''}>${c}</option>`).join('')}</select>
       <button class="btn primary" id="runCap">Run capture agent</button></div>
       <p class="muted small">${LIVE ? `Live AI: ${esc(MODEL)}. Your text is sent to the model and not stored.` : 'Demo mode: the three samples return pre-computed agent output. Set LLM_API_KEY on the server for live AI on any text.'}</p>
     </section>
@@ -234,9 +242,9 @@ function viewRoom() {
     <section class="panel chat">
       <h3>Ask Cobalt Route <small class="muted">answers only from approved content · ${LIVE ? 'live AI' : 'demo retrieval'}</small></h3>
       <p class="muted small">Prototype: the approved answers come from the Brain in this browser tab. A real deployment would keep them server-side.</p>
-      <div id="msgs">${S.chat.length ? S.chat.map(msg).join('') : '<div class="empty">Ask about security, rollout, pricing or the pilot.</div>'}</div>
+      <div id="msgs" role="log" aria-live="polite">${S.chat.length ? S.chat.map(msg).join('') : '<div class="empty">Ask about security, rollout, pricing or the pilot.</div>'}</div>
       <div class="samples">${ROOM_Q.map(q => `<button class="pill" data-q="${esc(q)}">${esc(q)}</button>`).join('')}</div>
-      <div class="row"><input id="roomQ" placeholder="Type a question…"><button class="btn primary" id="roomSend">Ask</button></div>
+      <div class="row"><input id="roomQ" aria-label="Your question" placeholder="Type a question…"><button class="btn primary" id="roomSend">Ask</button></div>
     </section>
   </div>`;
 }
@@ -290,7 +298,7 @@ function viewPipeline() {
 function viewAsk() {
   return `<header class="page-h"><div><h1>Ask your pipeline</h1><p class="sub">Plain-language questions, answered only from the record and its evidence.</p></div></header>
   <div class="panel"><div class="samples">${S.askSamples.map(a => `<button class="pill" data-a="${a.id}">${esc(a.q)}</button>`).join('')}</div>
-  <div class="row"><input id="askQ" placeholder="e.g. Which deals have no next meeting booked?"><button class="btn primary" id="askGo">Ask</button></div>
+  <div class="row"><input id="askQ" aria-label="Your question about the pipeline" placeholder="e.g. Which deals have no next meeting booked?"><button class="btn primary" id="askGo">Ask</button></div>
   <div id="askOut"></div></div>`;
 }
 function bindAsk() {
@@ -404,7 +412,8 @@ function render() {
   const [r, arg] = (location.hash.slice(1) || 'today').split('/');
   const [view, bind] = ROUTES[r] || ROUTES.today;
   $('#main').innerHTML = view(arg); bind && bind(arg);
-  document.querySelectorAll('nav a').forEach(a => a.classList.toggle('on', a.getAttribute('href').slice(1) === r || (r === 'deal' && a.getAttribute('href') === '#pipeline')));
+  document.querySelectorAll('nav a').forEach(a => { const on = a.getAttribute('href').split('/')[0].slice(1) === r || (r === 'deal' && a.getAttribute('href') === '#pipeline'); a.classList.toggle('on', on); on ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current'); });
+  document.title = ({ today: 'Today', capture: 'Capture agent', deal: 'Deal', pipeline: 'Pipeline', ask: 'Ask', brain: 'Company Brain', room: 'Buyer Room', trust: 'Agent controls', about: 'About' }[r] || 'Today') + ' · Accord';
   const n = S.today.filter(i => !S.done.has(i.id)).length; $('#badge').textContent = n || '';
   $('#main').focus({ preventScroll: true });
 }
